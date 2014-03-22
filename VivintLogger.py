@@ -17,7 +17,7 @@ from twisted.internet import reactor
 #    </table><br></div>
 #  <!-- END MAIN PAGE CONTENT -->
 
-productionTable = re.compile(r'<!-- START MAIN PAGE CONTENT -->(?P<production>.*)<!-- END MAIN PAGE CONTENT -->')
+logFile = None
 
 def getCurrentProductionData():
     response = urllib2.urlopen("http://192.168.1.3/production?locale=en")
@@ -31,6 +31,7 @@ def getCurrentProductionData():
     table = page[start:stop]
 
     dataPoint = {}
+    dataPoint['Date'] = time.time()
 
     rows = table.strip().split("<tr>")
     for r in rows:
@@ -43,14 +44,29 @@ def getCurrentProductionData():
     return dataPoint
 
 def doUpdate():
+    global logFile
     print "----- %s -----" % time.asctime()
     dataPoint = getCurrentProductionData()    
     for k,v in dataPoint.iteritems():
         print k, v
 
+    cleanData = {}
+    cleanData['Date'] = dataPoint['Date']
+    cleanData['Currently'] = dataPoint['Currently'].split(" ")[0]
+    cleanData['Today'] = dataPoint['Today'].split(" ")[0]
+    cleanData['Past Week'] = dataPoint['Past Week'].split(" ")[0]
+    cleanData['Since Installation'] = dataPoint['Since Installation'].split(" ")[0]
+
+    logFile.write("%(Date)d,%(Currently)s,%(Today)s,%(Past Week)s,%(Since Installation)s\n" % cleanData)
+    logFile.flush()
+
 def main(args):
+    global logFile
+    logFile = open("solar_data_%d.csv" % time.time(), "a")
+    logFile.write("Unix Time, Currently (kW), Today (kWH), Past Week (kWH), Since Installation (kWH)\n")
+
     l = task.LoopingCall(doUpdate)
-    l.start(15)
+    l.start(10)
     reactor.run()
     
 
